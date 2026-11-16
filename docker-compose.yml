@@ -1,0 +1,21 @@
+# Entorno local: Postgres + API.  Uso:  docker compose up -d --build
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: vales
+      POSTGRES_PASSWORD: vales
+      POSTGRES_DB: vales
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+  api:
+    build: .
+    depends_on: [db]
+    environment:
+      DATABASE_URL: postgresql://vales:vales@db:5432/vales
+      JWT_SECRET: cambiar-en-produccion
+      PUBLIC_BASE_URL: http://localhost:3000
+      VIGENCIA_DIAS: "7"
+    ports: ["3000:3000"]
+volumes:
+  pgdata:
