@@ -1,10 +1,10 @@
 import QRCode from 'qrcode';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { api, ESTADOS, Evento, fecha, fechaHora, Proveedor, Vale } from '../api';
 import { ProveedorPicker } from '../ProveedorPicker';
 import { esCompras, useSesion } from '../sesion';
-import { ErrorMsg, EstadoBadge, fmtCant, useAccion, useCarga } from '../ui';
+import { Aviso, Cargando, ErrorMsg, EstadoBadge, fmtCant, Girando, ProgresoVale, useAccion, useCarga } from '../ui';
 import { aForm, aItems, ItemForm, ItemsEditor } from './NuevoVale';
 
 const textoEvento = (e: Evento) => {
@@ -41,7 +41,7 @@ export function DetalleVale() {
     if (!emitido) return;
     api.get<{ url: string }>(`/vales/${id}/link`).then(async ({ url }) => {
       setLink(url);
-      setQr(await QRCode.toDataURL(url, { margin: 1, width: 440 }));
+      setQr(await QRCode.toDataURL(url, { margin: 1, width: 440, errorCorrectionLevel: 'H', color: { dark: '#1f2a24', light: '#ffffff' } }));
     }, () => {});
   }, [id, emitido]);
 
@@ -78,7 +78,7 @@ export function DetalleVale() {
     }
   }
 
-  if (cargando && !v) return <p className="vacio">Cargando…</p>;
+  if (cargando && !v) return <Cargando texto="Cargando el vale…" />;
   if (!v) return <ErrorMsg error={errorCarga} />;
 
   const items = v.items ?? [];
@@ -98,7 +98,8 @@ export function DetalleVale() {
         <EstadoBadge estado={v.estado} vencido={v.vencido} />
       </div>
 
-      {aviso && <div className="alerta ok">{aviso}</div>}
+      {!v.vencido && <ProgresoVale estado={v.estado} />}
+      <Aviso texto={aviso} />
       <ErrorMsg error={accion.error} />
 
       {/* ---------- Lo que tiene que hacer quien mira ---------- */}
@@ -186,8 +187,8 @@ export function DetalleVale() {
       <div className="card">
         <h2>Historial</h2>
         <ol className="historial">
-          {(v.eventos ?? []).map((e) => (
-            <li key={e.id}>
+          {(v.eventos ?? []).map((e, i) => (
+            <li key={e.id} style={{ '--i': i } as React.CSSProperties}>
               <strong>{textoEvento(e)}</strong>
               <div className="muted">
                 {fechaHora(e.fechaHora)} · {e.usuario?.nombre ?? (e.canal === 'PROVEEDOR' ? 'Proveedor (QR)' : 'Sistema')}
@@ -242,23 +243,30 @@ function PasoEmpleado({ v, qr, accion, hacer, verPdf, compartir }: {
   if (v.vencido) return <div className="alerta error">Este vale venció sin retirarse. Si todavía lo necesitás, hacé un pedido nuevo.</div>;
   if (!v.aceptadoEn) {
     return (
-      <div className="card">
+      <div className="card destacada">
         <h2>Tu vale está listo</h2>
         <p>
           Compras lo aprobó para retirar en <strong>{v.proveedor?.razonSocial}</strong>. Aceptalo para firmarlo y habilitar el retiro.
         </p>
         <button className="primario" style={{ width: '100%' }} disabled={accion.ocupado}
           onClick={() => hacer('aceptar', {}, 'Vale aceptado. Mostrale el QR al proveedor cuando retires.')}>
-          Aceptar y firmar el vale
+          {accion.ocupado && <Girando />} Aceptar y firmar el vale
         </button>
       </div>
     );
   }
   return (
-    <div className="card">
+    <div className="card destacada">
       <div className="qr">
         <h2 style={{ margin: 0 }}>Mostrale este QR al proveedor</h2>
-        {qr ? <img src={qr} alt={`QR del vale ${v.numero}`} /> : <p className="muted">Generando QR…</p>}
+        {qr ? (
+          <div className="marco">
+            <img className="codigo" src={qr} alt={`QR del vale ${v.numero}`} />
+            <img className="sello" src="/logo-64.png" alt="" />
+          </div>
+        ) : (
+          <Cargando texto="Generando QR…" />
+        )}
         <p className="muted">
           {v.proveedor?.razonSocial} · válido hasta el {fecha(v.fechaVigencia)}
         </p>
@@ -278,7 +286,7 @@ function Aprobacion({ v, ocupado, hacer }: { v: Vale; ocupado: boolean; hacer: H
   const [rechazando, setRechazando] = useState(false);
 
   return (
-    <div className="card">
+    <div className="card destacada">
       <h2>Completar y aprobar</h2>
       {v.proveedor && !v.proveedor.habilitado && (
         <div className="alerta info">El proveedor sugerido ({v.proveedor.razonSocial}) ya no está disponible en GLM. Elegí otro.</div>
@@ -299,7 +307,7 @@ function Aprobacion({ v, ocupado, hacer }: { v: Vale; ocupado: boolean; hacer: H
               hacer('aprobar', { proveedorId: proveedor!.id, items: aItems(items), observaciones: observaciones.trim() || undefined },
                 'Vale aprobado y emitido. El empleado ya lo puede aceptar y retirar.')
             }>
-            Aprobar y emitir vale
+            {ocupado && <Girando />} Aprobar y emitir vale
           </button>
           <button className="peligro" onClick={() => setRechazando(true)}>
             Rechazar

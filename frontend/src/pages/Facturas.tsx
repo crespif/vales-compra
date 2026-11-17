@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, Factura, fecha, fechaHora, hoy, pesos, Proveedor, Vale } from '../api';
 import { ProveedorPicker } from '../ProveedorPicker';
-import { ErrorMsg, useAccion, useCarga } from '../ui';
+import { Aviso, ErrorMsg, useAccion, useCarga } from '../ui';
 
 /** "85.000,50" o "85000,50" o "85000.50" → 85000.5 */
 const aNumero = (s: string) => Number(s.includes(',') ? s.replace(/\./g, '').replace(',', '.') : s);
@@ -61,7 +61,7 @@ export function Facturas() {
       <h1>Facturas</h1>
       <p className="muted">Cargá la factura del proveedor con los números de vale que cita. Esos vales pasan a "Facturado".</p>
       <br />
-      {ok && <div className="alerta ok">{ok}</div>}
+      <Aviso texto={ok} />
       <ErrorMsg error={accion.error} />
 
       <form className="card" onSubmit={registrar}>

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, Item, Proveedor, Vale } from '../api';
 import { ProveedorPicker } from '../ProveedorPicker';
-import { ErrorMsg, useAccion } from '../ui';
+import { ErrorMsg, Girando, useAccion } from '../ui';
 
 export type ItemForm = { cantidad: string; unidad: string; descripcion: string };
 export const itemVacio = (): ItemForm => ({ cantidad: '1', unidad: '', descripcion: '' });
@@ -91,7 +91,13 @@ export function NuevoVale() {
           Guardar borrador
         </button>
         <button className="primario" onClick={() => guardar(true)} disabled={ocupado}>
-          {ocupado ? 'Enviando…' : 'Enviar a Compras'}
+          {ocupado ? (
+            <>
+              <Girando /> Enviando…
+            </>
+          ) : (
+            'Enviar a Compras'
+          )}
         </button>
       </div>
     </>

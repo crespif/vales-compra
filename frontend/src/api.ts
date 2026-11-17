@@ -180,8 +180,8 @@ export const api = {
 export const ESTADOS: Record<Estado, { texto: string; tono: string }> = {
   BORRADOR: { texto: 'Borrador', tono: 'gris' },
   SOLICITADO: { texto: 'En Compras', tono: 'ambar' },
-  APROBADO: { texto: 'Aprobado', tono: 'azul' },
-  EMITIDO: { texto: 'Listo para retirar', tono: 'azul' },
+  APROBADO: { texto: 'Aprobado', tono: 'marca' },
+  EMITIDO: { texto: 'Listo para retirar', tono: 'marca' },
   ENTREGADO: { texto: 'Retirado', tono: 'verde' },
   CONCILIADO: { texto: 'Facturado', tono: 'verde' },
   RECHAZADO: { texto: 'Rechazado', tono: 'rojo' },

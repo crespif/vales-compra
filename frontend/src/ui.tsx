@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ApiError, ESTADOS, Estado } from './api';
 
 export function EstadoBadge({ estado, vencido }: { estado: Estado; vencido?: boolean }) {
@@ -7,19 +7,108 @@ export function EstadoBadge({ estado, vencido }: { estado: Estado; vencido?: boo
   return <span className={`badge ${e.tono}`}>{e.texto}</span>;
 }
 
+const IconoError = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="10" />
+    <path d="M12 7v6M12 17h.01" />
+  </svg>
+);
+
+/** Tilde que se dibuja sola: confirma visualmente que algo salió bien. */
+const IconoOk = () => (
+  <svg className="tilde" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="10" opacity="0.35" />
+    <path d="M7 12.5l3.2 3.2L17 9" />
+  </svg>
+);
+
 export function ErrorMsg({ error }: { error: unknown }) {
   if (!error) return null;
   const e = error instanceof ApiError ? error : null;
   return (
     <div className="alerta error" role="alert">
-      {error instanceof Error ? error.message : 'Ocurrió un error inesperado'}
-      {e?.detalles.length ? (
-        <ul>
-          {e.detalles.map((d) => (
-            <li key={d}>{d}</li>
-          ))}
-        </ul>
-      ) : null}
+      <IconoError />
+      <div>
+        {error instanceof Error ? error.message : 'Ocurrió un error inesperado'}
+        {e?.detalles.length ? (
+          <ul>
+            {e.detalles.map((d) => (
+              <li key={d}>{d}</li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+export function Aviso({ texto }: { texto: string | null }) {
+  if (!texto) return null;
+  return (
+    <div className="alerta ok" role="status" key={texto}>
+      <IconoOk />
+      <div>{texto}</div>
+    </div>
+  );
+}
+
+/** Filas grises que "brillan" mientras se carga una lista. */
+export function Esqueleto({ filas = 4 }: { filas?: number }) {
+  return (
+    <div className="esqueleto" aria-busy="true" aria-label="Cargando">
+      {Array.from({ length: filas }, (_, i) => (
+        <div key={i} style={{ opacity: 1 - i * 0.18 }} />
+      ))}
+    </div>
+  );
+}
+
+export function Vacio({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="vacio">
+      <img src="/logo-64.png" alt="" />
+      <div>{children}</div>
+    </div>
+  );
+}
+
+export function Cargando({ texto = 'Cargando…' }: { texto?: string }) {
+  return (
+    <div className="cargando" aria-busy="true">
+      <img src="/logo-64.png" alt="" />
+      <span>{texto}</span>
+    </div>
+  );
+}
+
+/** Rueda chica para botones mientras se envía algo. */
+export const Girando = () => <span className="girando" aria-hidden="true" />;
+
+const PASOS = ['Pedido', 'En Compras', 'Listo', 'Retirado', 'Facturado'];
+const POSICION: Partial<Record<Estado, number>> = {
+  BORRADOR: 0,
+  SOLICITADO: 1,
+  APROBADO: 2,
+  EMITIDO: 2,
+  ENTREGADO: 3,
+  CONCILIADO: 5,
+};
+
+/** Barra de progreso del vale: muestra en qué paso está, de un vistazo. */
+export function ProgresoVale({ estado }: { estado: Estado }) {
+  const actual = POSICION[estado];
+  if (actual === undefined) return null; // rechazado o anulado: se ve en el estado
+  return (
+    <div className="progreso" role="list" aria-label="Avance del vale">
+      {PASOS.map((p, i) => {
+        const clase = i < actual ? 'hecho' : i === actual ? 'actual' : '';
+        return (
+          <div key={p} role="listitem" className={`paso ${clase}`} style={{ '--i': i } as React.CSSProperties} aria-current={i === actual ? 'step' : undefined}>
+            <span className="punto">{i < actual ? '✓' : ''}</span>
+            <span className="etiqueta">{p}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }

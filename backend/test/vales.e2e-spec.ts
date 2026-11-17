@@ -152,7 +152,7 @@ describe('Circuito de vales (e2e)', () => {
 
   it('el proveedor no puede entregar hasta que el empleado acepte (firme)', async () => {
     const p = await http.get(`/v/${token}`).expect(200);
-    expect(p.text).toContain(`Vale de compra N° ${numero}`);
+    expect(p.text).toContain(`Vale N° ${numero}`);
     expect(p.text).toContain('todavía no aceptó');
     await http.post(`/publico/vales/${token}/entrega`).send({ pin: '4321' }).expect(409);
   });

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import PDFDocument from 'pdfkit';
 import * as QRCode from 'qrcode';
 import { Vale } from '../database/entities';
+import { GRIS, LOGO_PNG, VERDE } from '../marca';
 
 const fmtFecha = (d: Date | string | null | undefined) => {
   if (!d) return '';
@@ -25,14 +26,21 @@ export class PdfService {
 
     const W = doc.page.width, M = 28, ancho = W - 2 * M;
 
-    // Encabezado
-    doc.font('Helvetica-Bold').fontSize(10)
-      .text('COOPERATIVA DE OBRAS, SERVICIOS PÚBLICOS Y SERVICIOS SOCIALES LTDA. DE TRES ARROYOS', M, M, { width: ancho - 140 });
+    // Encabezado con el logo de CELTA
+    const conLogo = !!LOGO_PNG;
+    if (LOGO_PNG) doc.image(LOGO_PNG, M, M - 4, { width: 40, height: 40 });
+    const xTexto = conLogo ? M + 50 : M;
+    doc.font('Helvetica-Bold').fontSize(9.5).fillColor('#000')
+      .text('COOPERATIVA DE OBRAS, SERVICIOS PÚBLICOS Y SERVICIOS SOCIALES LTDA. DE TRES ARROYOS', xTexto, M, { width: ancho - 140 - (xTexto - M) });
     doc.font('Helvetica').fontSize(8)
-      .text('Sarmiento 411 - Tel. (02983) 427024/426103 - 7500 Tres Arroyos - CUIT 30-54569092-2', M, doc.y + 2, { width: ancho - 140 });
-    doc.font('Helvetica-Bold').fontSize(16).text(`N° ${v.numero}`, W - M - 140, M, { width: 140, align: 'right' });
-    doc.font('Helvetica').fontSize(8).text('VALE DE COMPRA MENOR', W - M - 140, M + 20, { width: 140, align: 'right' });
-    doc.moveTo(M, 72).lineTo(W - M, 72).lineWidth(0.8).stroke();
+      .text('Sarmiento 411 - Tel. (02983) 427024/426103 - 7500 Tres Arroyos - CUIT 30-54569092-2', xTexto, doc.y + 2, { width: ancho - 140 - (xTexto - M) });
+    doc.font('Helvetica-Bold').fontSize(16).fillColor(VERDE).text(`N° ${v.numero}`, W - M - 140, M, { width: 140, align: 'right' });
+    doc.font('Helvetica').fontSize(8).fillColor('#555').text('VALE DE COMPRA MENOR', W - M - 140, M + 20, { width: 140, align: 'right' });
+    doc.fillColor('#000');
+    // Franja con los colores del logo: verde y gris
+    doc.rect(M, 71, ancho * 0.7, 2.5).fill(VERDE);
+    doc.rect(M + ancho * 0.7, 71, ancho * 0.3, 2.5).fill(GRIS);
+    doc.fillColor('#000');
 
     // Datos
     let y = 82;
@@ -58,10 +66,10 @@ export class PdfService {
 
     // Ítems
     y = 182;
-    doc.rect(M, y, ancho - 120, 16).fill('#eeeeee').fillColor('#000');
+    doc.rect(M, y, ancho - 120, 16).fill('#e3f1e7').fillColor(VERDE);
     doc.font('Helvetica-Bold').fontSize(8.5).text('CANT.', M + 6, y + 4).text('DETALLE', M + 70, y + 4);
     y += 20;
-    doc.font('Helvetica').fontSize(9.5);
+    doc.font('Helvetica').fontSize(9.5).fillColor('#000');
     for (const it of v.items ?? []) {
       const cant = `${fmtCant(it.cantidad)}${it.unidad ? ' ' + it.unidad : ''}`;
       doc.text(cant, M + 6, y, { width: 60 });
@@ -75,7 +83,7 @@ export class PdfService {
 
     // Firmas electrónicas
     const yF = doc.page.height - M - 46;
-    doc.moveTo(M, yF).lineTo(W - M, yF).lineWidth(0.5).stroke();
+    doc.moveTo(M, yF).lineTo(W - M, yF).lineWidth(0.5).strokeColor(GRIS).stroke().strokeColor('#000');
     doc.font('Helvetica').fontSize(7.5).fillColor('#555');
     doc.text('AUTORIZÓ (Compras)', M, yF + 6);
     doc.text('RETIRA (empleado)', M + ancho / 2, yF + 6);

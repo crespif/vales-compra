@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api, Estado, fechaHora, Vale } from '../api';
+import { api, ESTADOS, Estado, fechaHora, Vale } from '../api';
 import { esCompras, useSesion } from '../sesion';
-import { ErrorMsg, EstadoBadge, useCarga } from '../ui';
+import { ErrorMsg, Esqueleto, EstadoBadge, useCarga, Vacio } from '../ui';
 
 type Filtro = { etiqueta: string; estado?: Estado };
 
@@ -61,11 +61,11 @@ export function ListaVales() {
 
       <ErrorMsg error={error} />
       {cargando && !datos ? (
-        <p className="vacio">Cargando…</p>
+        <Esqueleto />
       ) : datos?.length ? (
         <div className="lista">
-          {datos.map((v) => (
-            <Link key={v.id} to={`/vales/${v.id}`} className="fila">
+          {datos.map((v, i) => (
+            <Link key={v.id} to={`/vales/${v.id}`} className={`fila t-${v.vencido ? 'rojo' : ESTADOS[v.estado].tono}`} style={{ '--i': i } as React.CSSProperties}>
               <span className="titulo">
                 {v.numero ? `N° ${v.numero}` : 'Sin número'} · {v.proveedor?.razonSocial ?? 'Proveedor a definir'}
               </span>
@@ -80,7 +80,7 @@ export function ListaVales() {
           ))}
         </div>
       ) : (
-        <p className="vacio">{numero ? `No hay un vale N° ${numero}.` : 'No hay vales en esta lista.'}</p>
+        <Vacio>{numero ? `No hay un vale N° ${numero}.` : 'No hay vales en esta lista.'}</Vacio>
       )}
     </>
   );
