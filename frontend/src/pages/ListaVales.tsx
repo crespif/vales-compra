@@ -13,7 +13,7 @@ const FILTROS_COMPRAS: Filtro[] = [
   { etiqueta: 'Facturados', estado: 'CONCILIADO' },
   { etiqueta: 'Todos' },
 ];
-const FILTROS_EMPLEADO: Filtro[] = [{ etiqueta: 'Todos' }, { etiqueta: 'Para retirar', estado: 'EMITIDO' }, { etiqueta: 'En Compras', estado: 'SOLICITADO' }];
+const FILTROS_EMPLEADO: Filtro[] = [{ etiqueta: 'Todos' }, { etiqueta: 'Para retirar', estado: 'EMITIDO' }, { etiqueta: 'En Compras', estado: 'SOLICITADO' }, { etiqueta: 'Retirados', estado: 'ENTREGADO' }];
 
 export function ListaVales() {
   const { usuario } = useSesion();
