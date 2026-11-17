@@ -157,3 +157,13 @@ export function useAccion() {
 }
 
 export const fmtCant = (n: number) => (Number.isInteger(n) ? String(n) : n.toLocaleString('es-AR'));
+
+/** Devuelve el valor recién cuando el usuario deja de escribir. */
+export function useDemorado<T>(valor: T, ms = 250) {
+  const [v, setV] = useState(valor);
+  useEffect(() => {
+    const h = setTimeout(() => setV(valor), ms);
+    return () => clearTimeout(h);
+  }, [valor, ms]);
+  return v;
+}

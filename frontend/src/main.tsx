@@ -2,11 +2,12 @@ import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { HashRouter, Link, Navigate, NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import { api, ApiError, guardarSesion, onSesionVencida, Sesion, sesionGuardada } from './api';
-import { Admin } from './pages/Admin';
 import { DetalleVale } from './pages/DetalleVale';
 import { Facturas } from './pages/Facturas';
 import { ListaVales } from './pages/ListaVales';
 import { NuevoVale } from './pages/NuevoVale';
+import { Proveedores } from './pages/Proveedores';
+import { Usuarios } from './pages/Usuarios';
 import { esCompras, SesionCtx } from './sesion';
 import { ErrorMsg, Girando } from './ui';
 import './styles.css';
@@ -66,7 +67,7 @@ const iniciales = (n: string) =>
   n.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]!.toUpperCase()).join('');
 
 /** Cada pantalla entra con una transición suave al cambiar de ruta. */
-function Pantallas({ compras }: { compras: boolean }) {
+function Pantallas({ compras, admin }: { compras: boolean; admin: boolean }) {
   const loc = useLocation();
   return (
     <div className="vista" key={loc.pathname}>
@@ -75,7 +76,9 @@ function Pantallas({ compras }: { compras: boolean }) {
         <Route path="/vales/:id" element={<DetalleVale />} />
         <Route path="/nuevo" element={<NuevoVale />} />
         {compras && <Route path="/facturas" element={<Facturas />} />}
-        {compras && <Route path="/admin" element={<Admin />} />}
+        {compras && <Route path="/proveedores" element={<Proveedores />} />}
+        {admin && <Route path="/usuarios" element={<Usuarios />} />}
+        <Route path="/admin" element={<Navigate to="/proveedores" replace />} />
         <Route path="*" element={<Navigate to="/vales" replace />} />
       </Routes>
     </div>
@@ -85,6 +88,19 @@ function Pantallas({ compras }: { compras: boolean }) {
 function App() {
   const [sesion, setSesion] = useState(sesionGuardada);
   useEffect(() => onSesionVencida(() => setSesion(null)), []);
+  // Al abrir la app, trae el rol y los datos actuales (pueden haber cambiado desde el último ingreso)
+  const token = sesion?.token;
+  useEffect(() => {
+    if (!token) return;
+    api.get<Sesion>('/auth/yo').then(
+      (usuario) => {
+        const s = { token, usuario };
+        guardarSesion(s);
+        setSesion(s);
+      },
+      () => {},
+    );
+  }, [token]);
 
   const login = (s: { token: string; usuario: Sesion }) => {
     guardarSesion(s);
@@ -124,10 +140,11 @@ function App() {
           <NavLink to="/vales">{esCompras(u) ? 'Vales' : 'Mis vales'}</NavLink>
           <NavLink to="/nuevo">Nuevo pedido</NavLink>
           {esCompras(u) && <NavLink to="/facturas">Facturas</NavLink>}
-          {esCompras(u) && <NavLink to="/admin">Proveedores y usuarios</NavLink>}
+          {esCompras(u) && <NavLink to="/proveedores">Proveedores</NavLink>}
+          {u.rol === 'ADMIN' && <NavLink to="/usuarios">Usuarios</NavLink>}
         </nav>
         <main>
-          <Pantallas compras={esCompras(u)} />
+          <Pantallas compras={esCompras(u)} admin={u.rol === 'ADMIN'} />
         </main>
       </HashRouter>
     </SesionCtx.Provider>

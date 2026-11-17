@@ -64,6 +64,8 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body { overflow-x: hidden; }
 body {
   background: var(--bg);
   color: var(--ink);
@@ -239,6 +241,8 @@ ol.historial li:last-child::before { background: var(--accent); }
 label { display: block; font-size: 0.9rem; color: var(--ink-2); margin-bottom: 12px; }
 input, select, textarea {
   display: block; width: 100%; margin-top: 4px; padding: 10px 12px; font: inherit; color: var(--ink);
+  /* 16px como mínimo: con menos, el iPhone hace zoom al tocar el campo y no vuelve. */
+  font-size: max(16px, 1rem);
   background: var(--surface); border: 1px solid var(--line-fuerte); border-radius: var(--radius-sm); min-height: 44px;
   transition: border-color 160ms, box-shadow 160ms;
 }
@@ -363,3 +367,39 @@ button .girando { width: 16px; height: 16px; border-radius: 50%; border: 2px sol
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; animation-delay: 0ms !important; transition-duration: 1ms !important; transition-delay: 0ms !important; }
 }
+
+/* ---------- Usuarios ---------- */
+.usuario-fila { display: block; padding: 0; }
+.usuario-cabeza {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 12px 14px 12px 16px;
+  border: 0; border-radius: 0; background: transparent; font-weight: 400; min-height: 64px;
+}
+.usuario-cabeza:hover:not(:disabled) { background: var(--surface-2); }
+.usuario-cabeza:active:not(:disabled) { transform: none; }
+.usuario-cabeza[aria-expanded='true'] { background: var(--accent-soft); }
+.usuario-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.usuario-texto .titulo { display: flex; align-items: center; gap: 6px; }
+.avatar.apagado { opacity: 0.45; }
+.usuario-editor { padding: 4px 16px 16px; border-top: 1px solid var(--line); animation: bajar 220ms var(--ease) both; }
+.form-usuario { padding-top: 12px; }
+.grilla-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0 12px; }
+.ayuda { margin: -6px 0 12px; font-size: 0.85rem; }
+.clave { display: flex; gap: 6px; margin-top: 4px; }
+.clave input { margin-top: 0; flex: 1; min-width: 0; }
+.clave button { flex: none; padding: 8px 12px; }
+.interruptor {
+  display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--surface-2); cursor: pointer; color: var(--ink);
+}
+.interruptor span { display: flex; flex-direction: column; }
+.interruptor input {
+  appearance: none; -webkit-appearance: none; flex: none; width: 46px; height: 26px; min-height: 0; margin: 0; padding: 0;
+  border-radius: 999px; border: 0; background: var(--line-fuerte); position: relative; cursor: pointer; transition: background 200ms;
+}
+.interruptor input::after {
+  content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); transition: transform 220ms var(--ease);
+}
+.interruptor input:checked { background: var(--accent); }
+.interruptor input:checked::after { transform: translateX(20px); }
+.interruptor input:disabled { opacity: 0.5; cursor: default; }

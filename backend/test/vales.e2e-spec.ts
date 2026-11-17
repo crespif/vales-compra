@@ -77,13 +77,14 @@ describe('Circuito de vales (e2e)', () => {
       { legajo: 'compras', nombre: 'Jefe Compras', rol: Rol.COMPRAS, sectorId: c.id, passwordHash: hash },
       { legajo: '1001', nombre: 'Ana Empleada', rol: Rol.SOLICITANTE, sectorId: s.id, passwordHash: hash },
       { legajo: '1002', nombre: 'Otro Empleado', rol: Rol.SOLICITANTE, sectorId: s.id, passwordHash: hash },
+      { legajo: 'admin', nombre: 'Administrador', rol: Rol.ADMIN, sectorId: c.id, passwordHash: hash },
     ]);
     provId = (await ds.getRepository(Proveedor).save({ razonSocial: 'Centro Eléctrico', pinHash: await bcrypt.hash('4321', 4) })).id;
     provInhabId = (await ds.getRepository(Proveedor).save({ razonSocial: 'Dado de baja', habilitado: false })).id;
     // Continuar la serie del talonario en papel
     await ds.query(sqlSetval(53051));
 
-    for (const legajo of ['compras', '1001', '1002']) {
+    for (const legajo of ['compras', '1001', '1002', 'admin']) {
       const r = await http.post('/auth/login').send({ legajo, password: 'clave1234' }).expect(200);
       tok[legajo] = r.body.accessToken;
     }
@@ -310,6 +311,62 @@ describe('Circuito de vales (e2e)', () => {
       expect((await como('1001').get('/proveedores')).body.map((p: any) => p.razonSocial)).toEqual(['CABAL SA']);
       const ultima = await como('compras').get('/proveedores/sincronizacion').expect(200);
       expect(ultima.body).toMatchObject({ ok: false, error: 'GLM respondió 500 Internal Server Error' });
+    });
+  });
+
+  describe('usuarios', () => {
+    const patch = (quien: string, id: number, body: object) => http.patch(`/usuarios/${id}`).set('Authorization', `Bearer ${tok[quien]}`).send(body);
+    const idDe = async (legajo: string) => (await como('admin').get('/usuarios')).body.find((u: any) => u.legajo === legajo).id;
+
+    it('solo el administrador gestiona usuarios', async () => {
+      await como('compras').get('/usuarios').expect(403);
+      await patch('compras', 1, { nombre: 'x' }).expect(403);
+    });
+
+    it('crea y edita legajo, nombre, sector, rol y contraseña', async () => {
+      const sectorId = (await como('admin').get('/sectores')).body[0].id;
+      const nuevo = await como('admin').post('/usuarios', { legajo: ' 2001 ', nombre: ' Juan Pérez ', password: 'inicial123', rol: 'SOLICITANTE', sectorId }).expect(201);
+      expect(nuevo.body).toMatchObject({ legajo: '2001', nombre: 'Juan Pérez' });
+      expect(nuevo.body).not.toHaveProperty('passwordHash');
+      await como('admin').post('/usuarios', { legajo: '2001', nombre: 'Otro', password: 'inicial123', rol: 'SOLICITANTE', sectorId }).expect(409);
+      await como('admin').post('/usuarios', { legajo: '2002', nombre: 'Otro', password: 'corta', rol: 'SOLICITANTE', sectorId }).expect(400);
+      await como('admin').post('/usuarios', { legajo: '2002', nombre: 'Otro', password: 'inicial123', rol: 'SOLICITANTE', sectorId: 9999 }).expect(400);
+
+      const id = nuevo.body.id;
+      const e = await patch('admin', id, { legajo: '2010', nombre: 'Juan Carlos Pérez', rol: 'COMPRAS', password: 'nueva12345' }).expect(200);
+      expect(e.body).toMatchObject({ legajo: '2010', nombre: 'Juan Carlos Pérez', rol: 'COMPRAS' });
+      await http.post('/auth/login').send({ legajo: '2001', password: 'inicial123' }).expect(401);
+      await http.post('/auth/login').send({ legajo: '2010', password: 'inicial123' }).expect(401);
+      await http.post('/auth/login').send({ legajo: '2010', password: 'nueva12345' }).expect(200);
+      await patch('admin', id, { legajo: '1001' }).expect(409); // legajo de otro usuario
+      await patch('admin', id, { legajo: '   ' }).expect(400);
+      await patch('admin', id, { password: 'corta' }).expect(400);
+      await patch('admin', 99999, { nombre: 'x' }).expect(404);
+
+      const sesionVieja = (await http.post('/auth/login').send({ legajo: '2010', password: 'nueva12345' })).body.accessToken;
+      await http.get('/facturas').set('Authorization', `Bearer ${sesionVieja}`).expect(200); // es COMPRAS
+      await patch('admin', id, { rol: 'SOLICITANTE' }).expect(200);
+      await http.get('/facturas').set('Authorization', `Bearer ${sesionVieja}`).expect(403); // pierde el permiso ya
+      await patch('admin', id, { activo: false }).expect(200);
+      await http.post('/auth/login').send({ legajo: '2010', password: 'nueva12345' }).expect(401);
+      await http.get('/vales').set('Authorization', `Bearer ${sesionVieja}`).expect(401); // y la sesión abierta se corta
+    });
+
+    it('no deja al sistema sin administradores', async () => {
+      const yo = await idDe('admin');
+      await patch('admin', yo, { activo: false }).expect(400);
+      await patch('admin', yo, { rol: 'COMPRAS' }).expect(400);
+      // pero sí puede cambiar sus propios datos y su clave
+      await patch('admin', yo, { nombre: 'Administración CELTA', password: 'clave1234' }).expect(200);
+
+      // Un segundo admin no puede dejar sin rol al único otro si eso deja 0 activos
+      const sectorId = (await como('admin').get('/sectores')).body[0].id;
+      const otro = (await como('admin').post('/usuarios', { legajo: 'admin2', nombre: 'Admin 2', password: 'clave1234', rol: 'ADMIN', sectorId })).body.id;
+      const t2 = (await http.post('/auth/login').send({ legajo: 'admin2', password: 'clave1234' })).body.accessToken;
+      await http.patch(`/usuarios/${yo}`).set('Authorization', `Bearer ${t2}`).send({ rol: 'COMPRAS' }).expect(200); // quedan 2 → ok
+      await patch('admin', otro, { activo: false }).expect(403); // "admin" ya no es admin: rige en el momento
+      await http.patch(`/usuarios/${otro}`).set('Authorization', `Bearer ${t2}`).send({ activo: false }).expect(400); // sería él mismo
+      await http.patch(`/usuarios/${yo}`).set('Authorization', `Bearer ${t2}`).send({ rol: 'ADMIN' }).expect(200);
     });
   });
 });

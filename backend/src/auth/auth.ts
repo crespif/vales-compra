@@ -49,7 +49,11 @@ export const UsuarioActual = createParamDecorator(
 
 @Injectable()
 export class AuthGuard implements CanActivate {
-  constructor(private jwt: JwtService, private reflector: Reflector) {}
+  constructor(
+    private jwt: JwtService,
+    private reflector: Reflector,
+    @InjectRepository(Usuario) private usuarios: Repository<Usuario>,
+  ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const targets = [ctx.getHandler(), ctx.getClass()];
@@ -58,11 +62,17 @@ export class AuthGuard implements CanActivate {
     const req = ctx.switchToHttp().getRequest();
     const [tipo, token] = (req.headers.authorization ?? '').split(' ');
     if (tipo !== 'Bearer' || !token) throw new UnauthorizedException('Falta iniciar sesión');
+    let id: number;
     try {
-      req.usuario = (await this.jwt.verifyAsync(token)) as UsuarioSesion;
+      id = ((await this.jwt.verifyAsync(token)) as UsuarioSesion).id;
     } catch {
       throw new UnauthorizedException('Sesión inválida o vencida');
     }
+    // Rol y estado se leen de la base en cada pedido: si un administrador cambia el rol
+    // o desactiva al usuario, el cambio rige en el momento, sin esperar a que venza la sesión.
+    const u = await this.usuarios.findOneBy({ id });
+    if (!u || !u.activo) throw new UnauthorizedException('Tu usuario no está activo');
+    req.usuario = { id: u.id, legajo: u.legajo, nombre: u.nombre, rol: u.rol, sectorId: u.sectorId } satisfies UsuarioSesion;
 
     const roles = this.reflector.getAllAndOverride<Rol[]>(ROLES, targets);
     if (roles?.length && req.usuario.rol !== Rol.ADMIN && !roles.includes(req.usuario.rol)) {

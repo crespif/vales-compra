@@ -1,19 +1,6 @@
-import { useEffect, useState } from 'react';
-import { api, fechaHora, Proveedor, ResultadoSync, Rol, Sector, Usuario } from '../api';
-import { useSesion } from '../sesion';
-import { Aviso, ErrorMsg, Esqueleto, Girando, useAccion, useCarga, Vacio } from '../ui';
-
-export function Admin() {
-  const { usuario } = useSesion();
-  return (
-    <>
-      <h1>Proveedores y usuarios</h1>
-      <br />
-      <Proveedores />
-      {usuario.rol === 'ADMIN' ? <Usuarios /> : <p className="muted">La gestión de usuarios la hace un administrador.</p>}
-    </>
-  );
-}
+import React, { useEffect, useState } from 'react';
+import { api, fechaHora, Proveedor, ResultadoSync } from '../api';
+import { Aviso, ErrorMsg, Esqueleto, Girando, useAccion, useCarga, useDemorado, Vacio } from '../ui';
 
 type FiltroProv = 'activos' | 'sinpin' | 'baja' | 'todos';
 const FILTROS_PROV: { valor: FiltroProv; texto: string }[] = [
@@ -24,17 +11,7 @@ const FILTROS_PROV: { valor: FiltroProv; texto: string }[] = [
 ];
 type ProveedorListado = Proveedor & { tienePin: boolean };
 
-/** Devuelve el valor recién cuando el usuario deja de escribir. */
-function useDemorado<T>(valor: T, ms = 250) {
-  const [v, setV] = useState(valor);
-  useEffect(() => {
-    const h = setTimeout(() => setV(valor), ms);
-    return () => clearTimeout(h);
-  }, [valor, ms]);
-  return v;
-}
-
-function Proveedores() {
+export function Proveedores() {
   const ultima = useCarga(() => api.get<ResultadoSync | null>('/proveedores/sincronizacion'));
   const accion = useAccion();
   const [ok, setOk] = useState<string | null>(null);
@@ -74,9 +51,11 @@ function Proveedores() {
   const u = ultima.datos;
   const d = lista.datos;
   return (
+    <>
+    <h1>Proveedores</h1>
+    <p className="muted">Vienen de GLM y se actualizan solos cada hora. Acá solo se define el PIN con el que cada proveedor confirma las entregas.</p>
+    <br />
     <div className="card">
-      <h2>Proveedores</h2>
-      <p className="muted">Vienen de GLM y se actualizan solos cada hora. Acá solo se define el PIN con el que cada proveedor confirma las entregas.</p>
       <div className="sync">
         <p className="muted">
           {!u
@@ -159,92 +138,7 @@ function Proveedores() {
         </div>
       )}
     </div>
+    </>
   );
 }
 
-const ROLES: { valor: Rol; texto: string }[] = [
-  { valor: 'SOLICITANTE', texto: 'Empleado (pide vales)' },
-  { valor: 'COMPRAS', texto: 'Compras (aprueba y factura)' },
-  { valor: 'ADMIN', texto: 'Administrador' },
-];
-
-function Usuarios() {
-  const lista = useCarga(() => api.get<Usuario[]>('/usuarios'));
-  const { datos: sectores } = useCarga(() => api.get<Sector[]>('/sectores'));
-  const accion = useAccion();
-  const [ok, setOk] = useState<string | null>(null);
-  const vacio = { legajo: '', nombre: '', password: '', rol: 'SOLICITANTE' as Rol, sectorId: '' };
-  const [f, setF] = useState(vacio);
-  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value });
-
-  async function crear(e: React.FormEvent) {
-    e.preventDefault();
-    const u = await accion.ejecutar(() => api.post<Usuario>('/usuarios', { ...f, sectorId: Number(f.sectorId) }));
-    if (u) {
-      setOk(`Usuario ${u.nombre} creado.`);
-      setF(vacio);
-      lista.recargar();
-    }
-  }
-
-  async function alternar(u: Usuario) {
-    if (await accion.ejecutar(() => api.patch(`/usuarios/${u.id}`, { activo: !u.activo }))) lista.recargar();
-  }
-
-  return (
-    <div className="card">
-      <h2>Usuarios</h2>
-      <Aviso texto={ok} />
-      <ErrorMsg error={accion.error} />
-      <div className="lista" style={{ marginBottom: 16 }}>
-        {lista.datos?.map((u) => (
-          <div key={u.id} className="fila">
-            <span className="titulo">{u.nombre}</span>
-            <span className={`badge ${u.activo ? 'azul' : 'gris'}`} style={{ gridRow: 'span 2' }}>
-              {ROLES.find((r) => r.valor === u.rol)?.texto.split(' ')[0]}
-            </span>
-            <span className="sub">
-              Legajo {u.legajo} · {u.sector?.nombre} ·{' '}
-              <a href="#" onClick={(e) => { e.preventDefault(); alternar(u); }}>{u.activo ? 'Desactivar' : 'Activar'}</a>
-            </span>
-          </div>
-        ))}
-      </div>
-      <form onSubmit={crear}>
-        <h2>Nuevo usuario</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0 12px' }}>
-          <label>
-            Legajo
-            <input value={f.legajo} onChange={set('legajo')} required />
-          </label>
-          <label>
-            Nombre y apellido
-            <input value={f.nombre} onChange={set('nombre')} required />
-          </label>
-          <label>
-            Sector
-            <select value={f.sectorId} onChange={set('sectorId')} required>
-              <option value="">Elegí</option>
-              {sectores?.map((s) => (
-                <option key={s.id} value={s.id}>{s.nombre}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Rol
-            <select value={f.rol} onChange={set('rol')}>
-              {ROLES.map((r) => (
-                <option key={r.valor} value={r.valor}>{r.texto}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Contraseña inicial (mín. 8)
-            <input type="password" value={f.password} onChange={set('password')} minLength={8} required autoComplete="new-password" />
-          </label>
-        </div>
-        <button className="primario" disabled={accion.ocupado}>Crear usuario</button>
-      </form>
-    </div>
-  );
-}
