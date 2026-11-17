@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ApiError, ESTADOS, Estado } from './api';
 
 export function EstadoBadge({ estado, vencido }: { estado: Estado; vencido?: boolean }) {
@@ -166,4 +167,13 @@ export function useDemorado<T>(valor: T, ms = 250) {
     return () => clearTimeout(h);
   }, [valor, ms]);
   return v;
+}
+
+/**
+ * Barra de botones fija al pie de la pantalla. Se dibuja directamente en <body>:
+ * si quedara dentro de un contenedor animado (con transform), dejaría de estar fija
+ * y taparía el final del formulario.
+ */
+export function BarraFija({ children }: { children: React.ReactNode }) {
+  return createPortal(<div className="acciones fija">{children}</div>, document.body);
 }

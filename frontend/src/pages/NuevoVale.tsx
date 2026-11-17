@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, Item, Proveedor, Vale } from '../api';
 import { ProveedorPicker } from '../ProveedorPicker';
-import { ErrorMsg, Girando, useAccion } from '../ui';
+import { BarraFija, ErrorMsg, Girando, useAccion } from '../ui';
 
 export type ItemForm = { cantidad: string; unidad: string; descripcion: string };
 export const itemVacio = (): ItemForm => ({ cantidad: '1', unidad: '', descripcion: '' });
@@ -86,7 +86,7 @@ export function NuevoVale() {
           <textarea maxLength={500} value={observaciones} onChange={(e) => setObservaciones(e.target.value)} placeholder="Para qué es, urgencia, marca preferida…" />
         </label>
       </div>
-      <div className="acciones fija">
+      <BarraFija>
         <button onClick={() => guardar(false)} disabled={ocupado}>
           Guardar borrador
         </button>
@@ -99,7 +99,7 @@ export function NuevoVale() {
             'Enviar a Compras'
           )}
         </button>
-      </div>
+      </BarraFija>
     </>
   );
 }
