@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, ESTADOS, Estado, fechaHora, Vale } from '../api';
 import { esCompras, useSesion } from '../sesion';
-import { ErrorMsg, Esqueleto, EstadoBadge, useCarga, Vacio } from '../ui';
+import { BotonActualizar, ErrorMsg, Esqueleto, EstadoBadge, useAutoRefresco, useCarga, Vacio } from '../ui';
 
 type Filtro = { etiqueta: string; estado?: Estado };
 
@@ -13,7 +13,7 @@ const FILTROS_COMPRAS: Filtro[] = [
   { etiqueta: 'Facturados', estado: 'CONCILIADO' },
   { etiqueta: 'Todos' },
 ];
-const FILTROS_EMPLEADO: Filtro[] = [{ etiqueta: 'Todos' }, { etiqueta: 'Para retirar', estado: 'EMITIDO' }, { etiqueta: 'En Compras', estado: 'SOLICITADO' }, { etiqueta: 'Retirados', estado: 'ENTREGADO' }];
+const FILTROS_EMPLEADO: Filtro[] = [{ etiqueta: 'Todos' }, { etiqueta: 'Para retirar', estado: 'EMITIDO' }, { etiqueta: 'En Compras', estado: 'SOLICITADO' }];
 
 export function ListaVales() {
   const { usuario } = useSesion();
@@ -23,12 +23,13 @@ export function ListaVales() {
   const [buscar, setBuscar] = useState('');
   const numero = /^\d+$/.test(buscar.trim()) ? buscar.trim() : '';
 
-  const { datos, error, cargando } = useCarga(() => {
+  const { datos, error, cargando, recargar } = useCarga(() => {
     const q = new URLSearchParams();
     if (numero) q.set('numero', numero);
     else if (filtro.estado) q.set('estado', filtro.estado);
     return api.get<Vale[]>(`/vales?${q}`);
   }, [filtro, numero]);
+  useAutoRefresco(recargar);
 
   return (
     <>
@@ -37,9 +38,12 @@ export function ListaVales() {
           <h1>{compras ? 'Vales' : 'Mis vales'}</h1>
           <p className="muted">{compras ? 'Pedidos de todos los sectores' : 'Tus pedidos a Compras'}</p>
         </div>
-        <Link to="/nuevo" className="boton primario">
-          + Nuevo
-        </Link>
+        <div className="cabecera-acciones">
+          <BotonActualizar onClick={recargar} cargando={cargando} />
+          <Link to="/nuevo" className="boton primario">
+            + Nuevo
+          </Link>
+        </div>
       </div>
 
       {compras && (

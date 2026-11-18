@@ -137,6 +137,37 @@ export function useCarga<T>(fn: () => Promise<T>, deps: unknown[] = []) {
   return { datos, setDatos, error, cargando, recargar };
 }
 
+/** Evento que dispara la app cuando llega una notificación (ver main.tsx y sw.js). */
+export const EVENTO_ACTUALIZAR = 'vales:actualizar';
+
+/**
+ * Vuelve a traer los datos sola cuando llega una notificación o cuando la app
+ * vuelve a primer plano (p. ej. al volver de otra pestaña o desbloquear el celular).
+ */
+export function useAutoRefresco(recargar: () => unknown) {
+  useEffect(() => {
+    const visible = () => document.visibilityState === 'visible' && recargar();
+    window.addEventListener(EVENTO_ACTUALIZAR, recargar);
+    document.addEventListener('visibilitychange', visible);
+    return () => {
+      window.removeEventListener(EVENTO_ACTUALIZAR, recargar);
+      document.removeEventListener('visibilitychange', visible);
+    };
+  }, [recargar]);
+}
+
+/** Botón redondo para volver a traer los datos; gira mientras carga. */
+export function BotonActualizar({ onClick, cargando }: { onClick: () => unknown; cargando: boolean }) {
+  return (
+    <button type="button" className={`icono actualizar${cargando ? ' girando' : ''}`} onClick={() => onClick()} disabled={cargando} aria-label="Actualizar" title="Actualizar">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+        <path d="M21 3v6h-6" />
+      </svg>
+    </button>
+  );
+}
+
 /** Ejecuta una acción con estado de "ocupado" y error. */
 export function useAccion() {
   const [ocupado, setOcupado] = useState(false);

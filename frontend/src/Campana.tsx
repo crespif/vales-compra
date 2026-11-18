@@ -12,7 +12,7 @@ function IconoCampana({ tachada }: { tachada?: boolean }) {
   );
 }
 
-/** Botón del encabezado para activar las notificaciones en este celular. */
+/** Botón del encabezado para activar las notificaciones en este dispositivo (celular o PC). */
 export function Campana({ compras }: { compras: boolean }) {
   const [estado, setEstado] = useState<EstadoPush | null>(null);
   const [abierto, setAbierto] = useState(false);
@@ -97,7 +97,7 @@ export function Campana({ compras }: { compras: boolean }) {
           )}
           {estado === 'inactivo' && (
             <>
-              <p className="muted">Recibí un aviso en el celular {que}, aunque la app esté cerrada.</p>
+              <p className="muted">Recibí un aviso en este dispositivo (celular o PC) {que}, aunque la app esté cerrada.</p>
               <button className="primario" onClick={activar} disabled={ocupado} style={{ width: '100%' }}>
                 {ocupado ? (
                   <>

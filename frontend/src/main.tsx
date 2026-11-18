@@ -11,7 +11,7 @@ import { Usuarios } from './pages/Usuarios';
 import { Campana } from './Campana';
 import { desactivarPush, registrarSW, sincronizarPush } from './notificaciones';
 import { esCompras, SesionCtx } from './sesion';
-import { ErrorMsg, Girando } from './ui';
+import { ErrorMsg, EVENTO_ACTUALIZAR, Girando } from './ui';
 import './styles.css';
 
 
@@ -162,6 +162,8 @@ registrarSW();
 // Al tocar una notificación con la app abierta, el service worker pide ir al vale
 navigator.serviceWorker?.addEventListener('message', (e) => {
   if (e.data?.abrir) location.href = e.data.abrir;
+  // Llegó una notificación: la pantalla abierta vuelve a traer sus datos
+  if (e.data?.actualizar) window.dispatchEvent(new Event(EVENTO_ACTUALIZAR));
 });
 
 createRoot(document.getElementById('root')!).render(

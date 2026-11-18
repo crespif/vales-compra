@@ -10,14 +10,20 @@ self.addEventListener('push', (e) => {
     a = { cuerpo: e.data && e.data.text() };
   }
   e.waitUntil(
-    self.registration.showNotification(a.titulo || 'Vales de compra', {
-      body: a.cuerpo || '',
-      icon: '/icono-192.png',
-      badge: '/favicon-32.png',
-      tag: a.tag,
-      renotify: !!a.tag,
-      data: { url: a.url || '/' },
-    }),
+    Promise.all([
+      self.registration.showNotification(a.titulo || 'Vales de compra', {
+        body: a.cuerpo || '',
+        icon: '/icono-192.png',
+        badge: '/favicon-32.png',
+        tag: a.tag,
+        renotify: !!a.tag,
+        data: { url: a.url || '/' },
+      }),
+      // Si la app está abierta, que actualice lo que muestra
+      self.clients
+        .matchAll({ type: 'window', includeUncontrolled: true })
+        .then((vs) => vs.forEach((v) => v.postMessage({ actualizar: a.url || true }))),
+    ]),
   );
 });
 

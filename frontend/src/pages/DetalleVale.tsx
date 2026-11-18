@@ -4,7 +4,7 @@ import { Link, useLocation, useParams } from 'react-router-dom';
 import { api, ESTADOS, Evento, fecha, fechaHora, Proveedor, Vale } from '../api';
 import { ProveedorPicker } from '../ProveedorPicker';
 import { esCompras, useSesion } from '../sesion';
-import { Aviso, Cargando, ErrorMsg, EstadoBadge, fmtCant, Girando, ProgresoVale, useAccion, useCarga } from '../ui';
+import { Aviso, Cargando, ErrorMsg, EstadoBadge, fmtCant, Girando, ProgresoVale, useAccion, useCarga, BotonActualizar, useAutoRefresco } from '../ui';
 import { aForm, aItems, ItemForm, ItemsEditor } from './NuevoVale';
 
 const textoEvento = (e: Evento) => {
@@ -29,7 +29,8 @@ export function DetalleVale() {
   const compras = esCompras(usuario);
   const loc = useLocation();
   const [aviso, setAviso] = useState<string | null>((loc.state as { aviso?: string } | null)?.aviso ?? null);
-  const { datos: v, setDatos, error: errorCarga, cargando } = useCarga(() => api.get<Vale>(`/vales/${id}`), [id]);
+  const { datos: v, setDatos, error: errorCarga, cargando, recargar } = useCarga(() => api.get<Vale>(`/vales/${id}`), [id]);
+  useAutoRefresco(recargar);
   const accion = useAccion();
   const esMio = v?.solicitanteId === usuario.id;
 
@@ -95,7 +96,10 @@ export function DetalleVale() {
             {v.sector.nombre} · pedido por {v.solicitante.nombre} el {fechaHora(v.creadoEn)}
           </p>
         </div>
-        <EstadoBadge estado={v.estado} vencido={v.vencido} />
+        <div className="cabecera-acciones">
+          <EstadoBadge estado={v.estado} vencido={v.vencido} />
+          <BotonActualizar onClick={recargar} cargando={cargando} />
+        </div>
       </div>
 
       {!v.vencido && <ProgresoVale estado={v.estado} />}
