@@ -403,3 +403,30 @@ button .girando { width: 16px; height: 16px; border-radius: 50%; border: 2px sol
 .interruptor input:checked { background: var(--accent); }
 .interruptor input:checked::after { transform: translateX(20px); }
 .interruptor input:disabled { opacity: 0.5; cursor: default; }
+
+/* ---------- Campana de notificaciones ---------- */
+.campana { position: relative; flex: none; }
+.campana-btn {
+  position: relative; width: 38px; height: 38px; min-height: 0; padding: 0; border-radius: 50%;
+  display: grid; place-items: center; color: var(--ink-2);
+}
+.campana-btn.activa { color: var(--accent); }
+.campana-btn .punto {
+  position: absolute; top: 6px; right: 7px; width: 9px; height: 9px; border-radius: 50%;
+  background: var(--verde-celta); border: 2px solid var(--surface); animation: latido 2s infinite;
+}
+.campana-btn.activa svg { animation: respirar 600ms var(--ease) 1; }
+.panel-campana {
+  position: absolute; right: -50px; top: calc(100% + 10px); width: min(320px, calc(100vw - 32px));
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px;
+  box-shadow: var(--shadow-alta); z-index: 30; animation: bajar 180ms var(--ease) both;
+}
+.panel-campana strong { display: block; margin-bottom: 6px; }
+.panel-campana .muted { margin-bottom: 12px; }
+.panel-campana .acciones { display: flex; gap: 8px; }
+.panel-campana .acciones button { flex: 1; }
+.panel-campana .pasos { padding-left: 20px; margin: 4px 0 0; }
+.panel-campana .pasos li { margin-bottom: 6px; }
+.msg-campana { margin: 10px 0 0; font-size: 0.88rem; animation: aparecer 200ms; }
+.msg-campana.ok { color: var(--accent); }
+.msg-campana.error { color: var(--danger, #b42318); }

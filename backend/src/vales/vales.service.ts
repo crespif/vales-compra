@@ -1,4 +1,5 @@
 import {
+  Optional,
   BadRequestException,
   ConflictException,
   ForbiddenException,
@@ -11,6 +12,7 @@ import { DataSource, EntityManager, In } from 'typeorm';
 import { UsuarioSesion } from '../auth/auth';
 import { Canal, EstadoVale as E, Proveedor, Rol, Vale, ValeEvento, ValeItem } from '../database/entities';
 import { SQL_NEXTVAL } from '../database/motor';
+import { NotificacionesService } from '../notificaciones/notificaciones';
 import { assertTransicion, estaVencido, hoyISO, sumarDias, TransicionInvalida } from './estados';
 import { AprobarValeDto, CrearValeDto, EditarValeDto, FiltroValesDto, ItemDto } from './vales.dto';
 
@@ -25,7 +27,10 @@ const esCompras = (u?: UsuarioSesion) => u?.rol === Rol.COMPRAS || u?.rol === Ro
 
 @Injectable()
 export class ValesService {
-  constructor(@InjectDataSource() private ds: DataSource) {}
+  constructor(
+    @InjectDataSource() private ds: DataSource,
+    @Optional() private notif?: NotificacionesService,
+  ) {}
 
   // ---------- Lectura ----------
 
@@ -78,7 +83,7 @@ export class ValesService {
 
   async crear(actor: Actor, dto: CrearValeDto) {
     const u = actor.usuario!;
-    return this.ds.transaction(async (m) => {
+    const v = await this.ds.transaction(async (m) => {
       if (dto.proveedorId) await this.proveedorHabilitado(m, dto.proveedorId);
       const vale = await m.save(
         m.create(Vale, {
@@ -94,6 +99,8 @@ export class ValesService {
       if (dto.enviar) await this.cambiarEstado(m, vale, E.SOLICITADO, actor);
       return this.cargarCompleto(m, vale.id);
     });
+    if (v.estado === E.SOLICITADO) this.avisarNuevoPedido(v);
+    return v;
   }
 
   async editar(actor: Actor, id: number, dto: EditarValeDto) {
@@ -112,12 +119,14 @@ export class ValesService {
   }
 
   async enviar(actor: Actor, id: number) {
-    return this.ds.transaction(async (m) => {
+    const v = await this.ds.transaction(async (m) => {
       const v = await this.bloquear(m, id);
       this.soloSolicitante(actor, v);
       await this.cambiarEstado(m, v, E.SOLICITADO, actor);
       return this.cargarCompleto(m, id);
     });
+    this.avisarNuevoPedido(v);
+    return v;
   }
 
   /** "Firma" del empleado: acepta el vale emitido antes de ir a retirar. */
@@ -139,7 +148,7 @@ export class ValesService {
 
   /** Compras completa lo que falte, aprueba y el vale se emite (número + QR + vigencia). */
   async aprobar(actor: Actor, id: number, dto: AprobarValeDto, vigenciaDias: number) {
-    return this.ds.transaction(async (m) => {
+    const v = await this.ds.transaction(async (m) => {
       const v = await this.bloquear(m, id);
       await this.aplicarCambios(m, v, dto);
       if (dto.almacenId !== undefined) v.almacenId = dto.almacenId;
@@ -160,20 +169,34 @@ export class ValesService {
       await this.cambiarEstado(m, v, E.EMITIDO, actor, `Vale N° ${nextval}, válido hasta el ${v.fechaVigencia.split('-').reverse().join('/')}`);
       return this.cargarCompleto(m, id);
     });
+    this.notif?.avisar([v.solicitanteId], {
+      titulo: `Vale N° ${v.numero} aprobado`,
+      cuerpo: `Ya podés retirarlo en ${v.proveedor?.razonSocial ?? 'el proveedor'}. Abrilo y aceptalo para firmarlo.`,
+      url: `/#/vales/${v.id}`,
+      tag: `vale-${v.id}`,
+    });
+    return v;
   }
 
   async rechazar(actor: Actor, id: number, motivo: string) {
-    return this.ds.transaction(async (m) => {
+    const v = await this.ds.transaction(async (m) => {
       const v = await this.bloquear(m, id);
       v.motivoRechazo = motivo;
       await this.cambiarEstado(m, v, E.RECHAZADO, actor, motivo);
       return this.cargarCompleto(m, id);
     });
+    this.notif?.avisar([v.solicitanteId], {
+      titulo: 'Pedido rechazado',
+      cuerpo: `Compras rechazó tu pedido: ${motivo}`,
+      url: `/#/vales/${v.id}`,
+      tag: `vale-${v.id}`,
+    });
+    return v;
   }
 
   /** El solicitante anula lo suyo mientras no esté aprobado; Compras, hasta antes de la entrega. */
   async anular(actor: Actor, id: number, motivo: string) {
-    return this.ds.transaction(async (m) => {
+    const v = await this.ds.transaction(async (m) => {
       const v = await this.bloquear(m, id);
       const u = actor.usuario!;
       const propioSinAprobar = v.solicitanteId === u.id && [E.BORRADOR, E.SOLICITADO].includes(v.estado);
@@ -181,6 +204,15 @@ export class ValesService {
       await this.cambiarEstado(m, v, E.ANULADO, actor, motivo);
       return this.cargarCompleto(m, id);
     });
+    if (v.solicitanteId !== actor.usuario?.id) {
+      this.notif?.avisar([v.solicitanteId], {
+        titulo: v.numero ? `Vale N° ${v.numero} anulado` : 'Pedido anulado',
+        cuerpo: `Compras lo anuló: ${motivo}`,
+        url: `/#/vales/${v.id}`,
+        tag: `vale-${v.id}`,
+      });
+    }
+    return v;
   }
 
   /**
@@ -205,6 +237,21 @@ export class ValesService {
   async conciliar(m: EntityManager, ids: number[], actor: Actor, detalle: string) {
     const vales = await m.find(Vale, { where: { id: In(ids) }, lock: { mode: 'pessimistic_write' } });
     for (const v of vales) await this.cambiarEstado(m, v, E.CONCILIADO, actor, detalle);
+  }
+
+  // ---------- Avisos al celular ----------
+
+  /** "Nuevo pedido" a Compras (sin avisarle a quien lo hizo, si también es de Compras). */
+  private avisarNuevoPedido(v: Vale) {
+    if (!this.notif) return;
+    const items = v.items ?? [];
+    const detalle = items.slice(0, 2).map((i) => i.descripcion).join(', ') + (items.length > 2 ? ` y ${items.length - 2} más` : '');
+    this.notif.avisar(this.notif.idsDeCompras(v.solicitanteId), {
+      titulo: 'Nuevo pedido de compra',
+      cuerpo: `${v.solicitante?.nombre ?? 'Un empleado'} (${v.sector?.nombre ?? 'sin sector'}): ${detalle}`,
+      url: `/#/vales/${v.id}`,
+      tag: `vale-${v.id}`,
+    });
   }
 
   // ---------- Internos ----------

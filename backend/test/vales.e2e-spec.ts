@@ -369,4 +369,113 @@ describe('Circuito de vales (e2e)', () => {
       await http.patch(`/usuarios/${yo}`).set('Authorization', `Bearer ${t2}`).send({ rol: 'ADMIN' }).expect(200);
     });
   });
+
+  describe('notificaciones al celular', () => {
+    // Servicio push simulado: recibe lo que mandaría el servidor y lo descifra como haría el celular.
+    const ece = require('http_ece');
+    const crypto = require('crypto');
+    let push: Server;
+    let base = '';
+    const recibidos: Record<string, any[]> = {};
+    const responder: Record<string, number> = {};
+    const claves: Record<string, { ecdh: any; auth: Buffer }> = {};
+
+    const celular = (nombre: string) => {
+      const ecdh = crypto.createECDH('prime256v1');
+      ecdh.generateKeys();
+      const auth = crypto.randomBytes(16);
+      claves[nombre] = { ecdh, auth };
+      recibidos[nombre] = [];
+      return { endpoint: `${base}/push/${nombre}`, keys: { p256dh: ecdh.getPublicKey().toString('base64url'), auth: auth.toString('base64url') } };
+    };
+    const esperar = async (nombre: string, n: number) => {
+      for (let i = 0; i < 40 && recibidos[nombre].length < n; i++) await new Promise((r) => setTimeout(r, 50));
+      return recibidos[nombre];
+    };
+
+    beforeAll(async () => {
+      // Los servicios push reales son HTTPS: el simulado también, con un certificado de prueba.
+      const dir = require('fs').mkdtempSync(require('path').join(require('os').tmpdir(), 'push-'));
+      require('child_process').execSync(
+        `openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=127.0.0.1 -addext subjectAltName=IP:127.0.0.1 -keyout ${dir}/k.pem -out ${dir}/c.pem`,
+        { stdio: 'ignore' },
+      );
+      // Confiamos solo en ese certificado (sin desactivar la verificación TLS).
+      require('https').globalAgent.options.ca = require('fs').readFileSync(`${dir}/c.pem`);
+      push = require('https').createServer({ key: require('fs').readFileSync(`${dir}/k.pem`), cert: require('fs').readFileSync(`${dir}/c.pem`) }, (req: any, res: any) => {
+        const partes: Buffer[] = [];
+        req.on('data', (c: Buffer) => partes.push(c));
+        req.on('end', () => {
+          const nombre = req.url.split('/').pop();
+          const k = claves[nombre];
+          if (k) {
+            const plano = ece.decrypt(Buffer.concat(partes), { version: 'aes128gcm', privateKey: k.ecdh, authSecret: k.auth });
+            recibidos[nombre].push({ ...JSON.parse(plano.toString()), vapid: /^vapid t=/.test(req.headers.authorization ?? '') });
+          }
+          res.writeHead(responder[nombre] ?? 201).end();
+        });
+      });
+      await new Promise<void>((ok) => push.listen(0, ok));
+      base = `https://127.0.0.1:${(push.address() as AddressInfo).port}`;
+    });
+    afterAll(() => push.close());
+
+    it('el celular se suscribe con la clave pública del servidor', async () => {
+      const c = await http.get('/notificaciones/clave').expect(200);
+      expect(c.body.clave).toMatch(/^[A-Za-z0-9_-]{80,}$/);
+      expect((await http.get('/notificaciones/clave')).body.clave).toBe(c.body.clave); // estable
+      await como('compras').post('/notificaciones/suscripcion', celular('compras')).expect(204);
+      await como('1001').post('/notificaciones/suscripcion', celular('empleado')).expect(204);
+      await como('1001').post('/notificaciones/suscripcion', { endpoint: 'no-es-url', keys: { p256dh: 'x', auth: 'y' } }).expect(400);
+      await http.post('/notificaciones/suscripcion').send(celular('anonimo')).expect(401);
+    });
+
+    it('Compras recibe "Nuevo pedido" y el empleado, la aprobación', async () => {
+      const v = (await como('1001').post('/vales', { enviar: true, items: [{ cantidad: 2, descripcion: 'Guantes' }, { cantidad: 1, descripcion: 'Casco' }] }).expect(201)).body;
+      const [nuevo] = await esperar('compras', 1);
+      expect(nuevo).toMatchObject({ titulo: 'Nuevo pedido de compra', cuerpo: 'Ana Empleada (Administración): Guantes, Casco', url: `/#/vales/${v.id}`, vapid: true });
+      expect(recibidos.empleado).toHaveLength(0); // al que pidió no le llega su propio pedido
+
+      const prov = await ds.getRepository(Proveedor).save({ razonSocial: 'Ferretería Push' });
+      const a = (await como('compras').post(`/vales/${v.id}/aprobar`, { proveedorId: prov.id }).expect(201)).body;
+      const [aprob] = await esperar('empleado', 1);
+      expect(aprob).toMatchObject({ titulo: `Vale N° ${a.numero} aprobado`, url: `/#/vales/${v.id}` });
+      expect(aprob.cuerpo).toContain('Ya podés retirarlo en Ferretería Push');
+    });
+
+    it('avisa el rechazo con el motivo', async () => {
+      const v = (await como('1001').post('/vales', { enviar: true, items: [{ cantidad: 1, descripcion: 'Escalera' }] })).body;
+      await como('compras').post(`/vales/${v.id}/rechazar`, { motivo: 'Hay en el depósito' }).expect(201);
+      const lista = await esperar('empleado', 2);
+      expect(lista[1]).toMatchObject({ titulo: 'Pedido rechazado', cuerpo: 'Compras rechazó tu pedido: Hay en el depósito' });
+    });
+
+    it('un borrador no avisa; al enviarlo, sí', async () => {
+      const antes = recibidos.compras.length;
+      const v = (await como('1001').post('/vales', { items: [{ cantidad: 1, descripcion: 'Pinza' }] })).body;
+      await new Promise((r) => setTimeout(r, 300));
+      expect(recibidos.compras.length).toBe(antes);
+      await como('1001').post(`/vales/${v.id}/enviar`).expect(201);
+      const l = await esperar('compras', antes + 1);
+      expect(l[l.length - 1].cuerpo).toContain('Pinza');
+    });
+
+    it('prueba, baja y celulares que ya no existen', async () => {
+      const p = await como('1001').post('/notificaciones/prueba').expect(200);
+      expect(p.body).toEqual({ enviados: 1, fallidos: 0 });
+      const e = await esperar('empleado', 3);
+      expect(e[e.length - 1].titulo).toBe('Notificaciones activadas');
+
+      // El servicio push responde 410 (el usuario desinstaló la app): la suscripción se borra sola
+      responder.empleado = 410;
+      expect((await como('1001').post('/notificaciones/prueba')).body).toEqual({ enviados: 0, fallidos: 1 });
+      expect((await como('1001').post('/notificaciones/prueba')).body).toEqual({ enviados: 0, fallidos: 0 });
+
+      // Baja manual (al cerrar sesión)
+      const sub = celular('compras2');
+      await como('compras').post('/notificaciones/suscripcion', sub).expect(204);
+      await http.delete('/notificaciones/suscripcion').set('Authorization', `Bearer ${tok.compras}`).send({ endpoint: sub.endpoint }).expect(204);
+      expect((await como('compras').post('/notificaciones/prueba')).body.enviados).toBe(1); // queda solo el primero
+    });
+  });
 });

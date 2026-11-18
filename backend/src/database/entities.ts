@@ -191,4 +191,23 @@ export class Parametro {
   @Column({ type: 'text' }) valor: string;
 }
 
-export const ENTITIES = [Sector, Usuario, Proveedor, Vale, ValeItem, ValeEvento, Factura, FacturaVale, Parametro];
+/**
+ * Un celular/navegador donde el usuario activó las notificaciones (Web Push).
+ * Un usuario puede tener varios; si el navegador la da de baja, se borra sola.
+ */
+@Entity('push_suscripcion')
+export class PushSuscripcion {
+  @PrimaryGeneratedColumn() id: number;
+  @Index()
+  @Column({ name: 'usuario_id' }) usuarioId: number;
+  @ManyToOne(() => Usuario, { onDelete: 'CASCADE' }) @JoinColumn({ name: 'usuario_id' }) usuario: Usuario;
+  /** sha256 del endpoint: el endpoint puede ser muy largo para un índice único. */
+  @Column({ name: 'endpoint_hash', type: 'varchar', length: 64, unique: true }) endpointHash: string;
+  @Column({ type: 'text' }) endpoint: string;
+  @Column({ type: 'varchar', length: 200 }) p256dh: string;
+  @Column({ type: 'varchar', length: 100 }) auth: string;
+  @Column({ type: 'varchar', length: 250, nullable: true }) dispositivo: string | null;
+  @CreateDateColumn({ name: 'creado_en', type: TS }) creadoEn: Date;
+}
+
+export const ENTITIES = [Sector, Usuario, Proveedor, Vale, ValeItem, ValeEvento, Factura, FacturaVale, Parametro, PushSuscripcion];

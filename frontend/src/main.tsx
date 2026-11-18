@@ -8,6 +8,8 @@ import { ListaVales } from './pages/ListaVales';
 import { NuevoVale } from './pages/NuevoVale';
 import { Proveedores } from './pages/Proveedores';
 import { Usuarios } from './pages/Usuarios';
+import { Campana } from './Campana';
+import { desactivarPush, registrarSW, sincronizarPush } from './notificaciones';
 import { esCompras, SesionCtx } from './sesion';
 import { ErrorMsg, Girando } from './ui';
 import './styles.css';
@@ -100,13 +102,17 @@ function App() {
       },
       () => {},
     );
+    // Si este celular tenía las notificaciones activadas, las asocia al usuario actual
+    sincronizarPush();
   }, [token]);
 
   const login = (s: { token: string; usuario: Sesion }) => {
     guardarSesion(s);
     setSesion(s);
   };
-  const salir = () => {
+  const salir = async () => {
+    // Al cerrar sesión, este celular deja de recibir los avisos de ese usuario
+    await Promise.race([desactivarPush().catch(() => {}), new Promise((r) => setTimeout(r, 2000))]);
     guardarSesion(null);
     setSesion(null);
   };
@@ -132,6 +138,7 @@ function App() {
             </span>
             <span className="avatar" aria-hidden="true">{iniciales(u.nombre)}</span>
           </span>
+          <Campana compras={esCompras(u)} />
           <button className="salir" onClick={salir}>
             Salir
           </button>
@@ -150,6 +157,12 @@ function App() {
     </SesionCtx.Provider>
   );
 }
+
+registrarSW();
+// Al tocar una notificación con la app abierta, el service worker pide ir al vale
+navigator.serviceWorker?.addEventListener('message', (e) => {
+  if (e.data?.abrir) location.href = e.data.abrir;
+});
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

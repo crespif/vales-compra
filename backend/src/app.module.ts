@@ -6,6 +6,7 @@ import { CatalogosModule } from './catalogos/catalogos';
 import { dataSourceOptions } from './database/data-source';
 import { FacturasModule } from './facturas/facturas';
 import { GlmModule } from './glm/glm';
+import { NotificacionesModule } from './notificaciones/notificaciones';
 import { PublicoModule } from './publico/publico';
 import { ValesModule } from './vales/vales.module';
 
@@ -16,6 +17,7 @@ import { ValesModule } from './vales/vales.module';
     AuthModule,
     CatalogosModule,
     GlmModule,
+    NotificacionesModule,
     ValesModule,
     PublicoModule,
     FacturasModule,

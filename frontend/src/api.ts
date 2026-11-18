@@ -171,6 +171,10 @@ export const api = {
     (await llamar(path, { method: 'POST', body: JSON.stringify(body) })).json() as Promise<T>,
   patch: async <T>(path: string, body: unknown) =>
     (await llamar(path, { method: 'PATCH', body: JSON.stringify(body) })).json() as Promise<T>,
+  /** Para respuestas sin contenido (204). */
+  enviar: async (method: 'POST' | 'DELETE', path: string, body: unknown = {}) => {
+    await llamar(path, { method, body: JSON.stringify(body) });
+  },
   /** Descarga con sesión (p. ej. el PDF) y devuelve un blob. */
   blob: async (path: string) => (await llamar(path)).blob(),
 };
