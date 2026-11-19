@@ -4,6 +4,7 @@ import {
   ArrayMinSize,
   IsBoolean,
   IsEnum,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsNumber,
@@ -56,4 +57,6 @@ export class FiltroValesDto {
   @IsOptional() @Type(() => Number) @IsInt() numero?: number;
   @IsOptional() @Type(() => Number) @IsInt() proveedorId?: number;
   @IsOptional() @Type(() => Number) @IsInt() sectorId?: number;
+  /** Incluye los productos de cada vale (p. ej. para controlarlos contra una factura). */
+  @IsOptional() @IsIn(['1', 'true']) items?: string;
 }

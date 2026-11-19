@@ -247,6 +247,18 @@ describe('Circuito de vales (e2e)', () => {
     expect(todos.body.length).toBeGreaterThanOrEqual(8);
   });
 
+  it('para controlar una factura, lista los vales con sus productos', async () => {
+    const sin = await como('compras').get('/vales?estado=EMITIDO').expect(200);
+    expect(sin.body[0].items).toBeUndefined(); // por defecto no los trae (lista liviana)
+    const con = await como('compras').get('/vales?estado=EMITIDO&items=1').expect(200);
+    expect(con.body.length).toBe(sin.body.length); // el join no cambia cuántos vales devuelve
+    for (const v of con.body) {
+      expect(v.items.length).toBeGreaterThan(0);
+      expect(v.items[0]).toHaveProperty('descripcion');
+    }
+    await como('compras').get('/vales?items=quizas').expect(400);
+  });
+
   describe('proveedores desde GLM', () => {
     const glmProv = (codigo: number, razon: string, documento = 30654364229) => ({
       codigo, razon_social: razon, nombre_fantasia: razon, email: '', domicilio: 'CHACABUCO Y BETOLAZA 0',

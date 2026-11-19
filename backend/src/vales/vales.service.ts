@@ -48,6 +48,7 @@ export class ValesService {
     if (f.numero) qb.andWhere('v.numero = :numero', { numero: f.numero });
     if (f.proveedorId) qb.andWhere('v.proveedorId = :pid', { pid: f.proveedorId });
     if (f.sectorId) qb.andWhere('v.sectorId = :sid', { sid: f.sectorId });
+    if (f.items) qb.leftJoinAndSelect('v.items', 'i').addOrderBy('i.orden', 'ASC');
     const vales = await qb.getMany();
     return vales.map((v) => this.conVencimiento(v));
   }

@@ -441,3 +441,33 @@ button.icono.actualizar svg { transition: transform 300ms var(--ease); }
 button.icono.actualizar:active svg { transform: rotate(90deg); }
 button.icono.actualizar.girando svg { animation: girar 800ms linear infinite; }
 button.icono.actualizar:disabled { opacity: 1; }
+
+/* ---------- Facturas: productos de cada vale ---------- */
+.vales-factura-cab { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+button.link {
+  background: none; border: 0; padding: 0; min-height: 0; color: var(--accent); font-weight: 600; font-size: 0.88rem; cursor: pointer;
+}
+button.link:hover { text-decoration: underline; }
+.buscar-producto { margin: 4px 0 6px; }
+.vale-factura { cursor: default; }
+.vale-factura label { color: var(--ink); font-size: 1rem; display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; margin: 0; cursor: pointer; font-weight: 400; }
+.vale-factura.abierto { border-bottom-color: transparent; }
+.ver-productos {
+  flex: none; display: inline-flex; align-items: center; gap: 4px; min-height: 32px; padding: 4px 10px;
+  border-radius: 999px; font-size: 0.82rem; font-weight: 600; color: var(--accent);
+  background: color-mix(in srgb, var(--verde-celta) 9%, transparent); border: 1px solid color-mix(in srgb, var(--verde-celta) 25%, transparent);
+}
+.ver-productos svg { transition: transform 220ms var(--ease); }
+.ver-productos[aria-expanded='true'] svg { transform: rotate(180deg); }
+.ver-productos:disabled { opacity: 1; cursor: default; }
+.productos-vale {
+  margin: 0 0 6px 30px; padding: 4px 12px 8px; border-left: 3px solid var(--verde-celta);
+  background: var(--surface-2); border-radius: 0 10px 10px 0; animation: bajar 200ms var(--ease) both;
+  border-bottom: 1px solid var(--line);
+}
+.productos-vale table.items td { padding: 6px 4px; }
+.productos-vale table.items td.cant { width: 80px; }
+.productos-vale .muted { margin: 6px 0 0; font-size: 0.82rem; }
+.productos-vale tr.coincide td { background: color-mix(in srgb, var(--verde-celta) 8%, transparent); }
+.productos-vale mark { background: color-mix(in srgb, var(--verde-celta) 28%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
+@media (max-width: 420px) { .productos-vale { margin-left: 0; } }
